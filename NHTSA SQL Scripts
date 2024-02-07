@@ -1,0 +1,519 @@
+Data Flow
+
+The current file and data will be normalized
+All the data in the existing sheet will be normalized to fit as per the normalized structure as defined in the document.
+This involves manual work in the sheet to (find/replace) arrive at final values
+Once this is done, the data will be imported to MS SQL Server
+The data from the database will be used to build queries (using SQL statements such as joins, group by etc), Power BI, reporting etc.
+Important: The values imported from sheets will have the column name sorted that should match with the database. For example if a tables has column name a,c,d,b then the sheet should have similar columns aligned a,c,d,b 
+
+
+Master Tables
+
+The additional master tables need to be created in order to get the database structured and apply normalization.
+
+2.1 State Master
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE state_mst (
+    state_id INT PRIMARY KEY,
+    state_name VARCHAR(255),
+    state_zip INT 
+);
+
+
+2.2 Person Master
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE person_mst (
+    person_id INT PRIMARY KEY,
+    person_name VARCHAR(255), 
+    person_dob DATE,
+    person_sex VARCHAR(255),
+    address1 VARCHAR(255),
+    address2 VARCHAR(255), 
+    zipcode INT,
+    );
+
+2.3 Case Master
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE case_mst (
+    case_id INT PRIMARY KEY,
+    person_id INT,
+    FOREIGN KEY (person_id) REFERENCES person_mst(person_id)
+);
+
+
+2.4 Vehicle Master
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE vehicle_mst (
+   vehicle_id INT PRIMARY KEY,
+   vehicle_brand VARCHAR(255),
+   vehicle_makename VARCHAR(255),
+   vehicle_year INT,
+   vehicle_type INT, – eg. jeep, pickup, sedan
+   vehicle_variant VARCHAR(255), – eg. patriot, es
+   vehicle_body VARCHAR(255) – eg. 4 door, light pick up
+);
+
+
+2.5 Category Master
+
+(In the whole doc, – is “ double dashes -” which is considered as a comment to understand. In case if you copy and paste, please ensure it is two dashes. Below INJ_SEVNAME is an example)
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE category_mst (
+  category_id INT PRIMARY KEY,
+  category_desc VARCHAR(255) – eg. INJ_SEVNAME, SEATPOSNAME 
+);
+
+
+2.6 Reason Master
+
+This table is required for most of the transaction tables. 
+
+CREATE TABLE reason_mst (
+  reason_id INT PRIMARY KEY,
+  category_id INT,
+  reason_desc VARCHAR(255),
+  FOREIGN KEY (category_id) REFERENCES category_mst(category_id)
+);
+
+This table along with ‘Category’ is the main table used in several places/tables. Below is the example: 
+
+
+Table
+Column/Category
+Reason
+nmcrash
+nmccname
+Wrong-way riding or walking
+accident
+man_collname
+The first harmful event was not a collision with a motor vehicle in transport
+drug
+drugresname
+Methamphetamine
+drug
+drugspecname
+Whole blood
+
+
+
+2.7 Event Master
+
+Required for the following transaction tables. (This table is optional and can be created if required based on findings)
+
+cevent_1
+
+CREATE TABLE event_mst (
+  event_id INT PRIMARY KEY,
+  event_desc VARCHAR(255)
+);
+
+
+Transaction Tables
+
+As per the data and tabs available in the sheets, the following tables are to be created. 
+
+
+3.1 Drugs
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Person Master
+Category Master
+Reason Master
+
+
+CREATE TABLE drugs_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    vehicle_id INT,
+    person_id INT,
+    drugspecname INT, – from category/reason master
+    drugresname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id),
+    FOREIGN KEY (vehicle_id) REFERENCES vehicle_mst(vehicle_id),
+    FOREIGN KEY (person_id) REFERENCES person_mst(person_id)
+   );
+
+
+3.2 Safetyeq
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+
+CREATE TABLE safetyeq_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    nmhelmetname VARCHAR(255),
+    nmpropadname VARCHAR(255),
+    nmothproname VARCHAR(255),
+    nmrefcloname VARCHAR(255),
+    nmlightname VARCHAR(255),
+    nmothpername VARCHAR(255),
+FOREIGN KEY (state_id) REFERENCES state_mst(state_id),    
+FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.3 Person_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Vehicle Master
+Person Master
+Category Master
+Reason Master
+
+CREATE TABLE person_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    vehicle_id INT,
+    person_id INT, – age and gender will be populated from this person master
+    person_typname VARCHAR(255),
+    ve_forms INT,
+    date_trx DATE, – date format with month, date, hours
+    harm_evname INT, – all the values from here and below comes from category/reason master
+    Inj_sevname INT,
+    seat_posname INT,
+    rest_usename INT,
+    rest_misname INT,
+    helm_usename INT,
+    air_bagname INT,
+    ejectionname INT,
+    ej_pathname INT,
+    extricatename INT,
+    alc_detname INT,  
+    alc_statusname INT,
+    atst_typname INT,
+    alc_resname INT,
+    drugsname INT,
+    drug_detname INT, 
+    dstatusname  INT,
+    doaname INT, – until here
+    man_collname INT,
+    vehicle_info INT, – foreign key from vehicle master will populate values for (mod_year,            vpicmakename, vpicmodelname, vpickbodyclassname, makename, body_typname, mak_modename)
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id),
+    FOREIGN KEY (vehicle_id) REFERENCES vehicle_mst(vehicle_id),
+    FOREIGN KEY (person_id) REFERENCES person_mst(person_id)
+);
+
+
+3.4 pbtype_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Person Master
+Category Master
+Reason Master
+
+CREATE TABLE pbtype_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    pbagename INT, – from person master
+    pbsexname INT, – from person master (these both fields can be one field from person_id if available)
+    pbtypename INT, – this and below from category/reason master
+    pedctypename INT,
+    pedlocname INT,
+    pedposname INT,
+    motdirname INT,
+    motmanname INT,
+    pedcgpname INT,
+     FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+     FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.5 nmprior_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE nmprior_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    nmactionname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.6 nmdistract_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE nmdistract_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    nmdistractname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.7 nmcrash_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE nmcrash_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    nmcc INT,
+    nmccname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.8 maneuver_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE maneuver_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    veh_no INT,
+    maneuvrname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.9 driverrf_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE driverrf_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    veh_no INT,
+    driverrfname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.10 drimpair_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE drimpair_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    veh_no INT,
+    drimpairname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.11 distract_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE distract_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    veh_no INT,
+    drdistractname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.12 damage_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE damage_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    veh_no INT,
+    damagename INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.13 cashrf_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE cashrf_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    crashrfname INT, – from category/reason master
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.14 cevent_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+Event Master
+
+CREATE TABLE cevent_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    event_no INT,
+    aoi1name INT, – this and below from category/reason master
+    soename INT,
+    aoi2name INT,
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+
+3.15 accident_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+
+CREATE TABLE accident_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    event_no INT,
+    peds INT,
+    ve_total INT,
+    ve_forms INT,
+    countyname INT, –this could be from state master
+    accident_date DATE, – monthname, day, dayweekname, year, hourname will come from this date
+    tway_id INT,
+    routename INT, — this and below is from category/reason master
+    rur_urbname INT,
+    func_sysname INT,
+    rd_ownername INT,
+    nhsname INT,
+    harm_evname INT,
+    man_collname INT,
+    typ_intname INT,
+    rel_roadname INT,
+    wrk_zonename INT,
+    lgt_condname INT,
+    weathername INT,
+    railname INT,
+    latitude INT, – this is to be captured
+    longitude INT, – this too
+    fatals INT,
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+   );
+
+
+3.16 parkwork_1
+
+Other master tables used by this tables includes:
+State Master
+Case Master
+Category Master
+Reason Master
+Vehicle Master
+
+CREATE TABLE parkwork_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    vehicle_no INT,
+    parkwork_date DATE, – monthname, hourname will come from this
+    pharm_evname INT, – this and below will be from category/reason master
+    pman_collname INT,
+    pownername INT,
+    vehicle_id INT, – pmodyear, pvpicmakename, pvpicmodelname, pvpicbodyclassname, pmakename, pbodytypname, pmak_modname; these will be from vehicle master
+    pgvwr_fromname INT, – can this also be from vehicle master? If yes, can be added
+    pvin INT,
+    pimpact1name INT, – this and below from category/reason master
+    pveh_sevname INT,
+    pm_harmname INT,
+    pdeaths INT,
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+    
+
+3.17 vpicdecode_trx
+
+CREATE TABLE vpicdecode_trx (
+    state_id INT PRIMARY KEY,
+    case_id INT,
+    vehicle_no INT,
+    vehicle_plantcountryid INT,
+    vehicle_plantstate VARCHAR(255),
+    vehicle_plantcity VARCHAR(255),
+    vehicle_plantcompanyname VARCHAR(255),
+    vehicle_bodyclass VARCHAR(255),
+    vehicle_doorscount INT,
+    vehicle_transmissionstyle VARCHAR(255),
+    vehicle_drivetype VARCHAR(255),
+    vehicle_axlescount INT,
+    vehicle_axleconfiguration VARCHAR(255),
+    vehicle_brakesystemtype VARCHAR(255),
+    vehicle_brakesystemdesc VARCHAR(255),
+    vehicle_airbaglocfront VARCHAR(255),
+    vehicle_airbaglocside VARCHAR(255),
+    vehicle_airbagloccurtain VARCHAR(255),
+    vehicle_seatbelttype VARCHAR(255),
+    Vehicle_fueltypeprimary VARCHAR(255),
+    FOREIGN KEY (state_id) REFERENCES state_mst(state_id),
+    FOREIGN KEY (case_id) REFERENCES case_mst(case_id)
+);
+
+MS SQL Script File
+
+A working copy of Microsoft SQL Server script file is attached along with this document. This can be directly used for tables creation.
